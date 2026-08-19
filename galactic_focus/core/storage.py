@@ -94,7 +94,7 @@ class StorageManager:
     def _load_raw(self) -> dict:
         with self._lock:
             try:
-                with open(self.file_path, "r", encoding="utf-8") as f:
+                with open(self.file_path, "r", encoding="utf-8-sig") as f:
                     data = json.load(f)
                     if "ships" not in data:
                         data["ships"] = data.get("projects", [])

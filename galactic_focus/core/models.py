@@ -241,9 +241,8 @@ class FocusSession:
             mission_id=data.get("mission_id", ""),
             mission_title=data.get("mission_title", ""),
             started_at=data.get("started_at", datetime.now().isoformat()),
-            ended_at=data.get("ended_at", datetime.now().isoformat()),
-            target_seconds=data.get("target_seconds", 1200),
-            actual_seconds=data.get("actual_seconds", 0),
+            target_seconds=data.get("target_seconds") or data.get("target_duration_seconds", 1200),
+            actual_seconds=data.get("actual_seconds") or data.get("actual_duration_seconds", 0),
             overtime_seconds=data.get("overtime_seconds", 0),
             completed=data.get("completed", True),
         )
