@@ -1,0 +1,28 @@
+﻿# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.exe
+
+# Exported CSV data & runtime logs
+*.log
+carnet_entretien_*.csv
+galactic_focus/carnet_entretien_*.csv
+
+# Environments & IDEs
+.env
+.venv
+env/
+venv/
+.idea/
+.vscode/
+
+# Tooling & Agents metadata
+.agents/
+.gemini/
+.DS_Store
+Thumbs.db

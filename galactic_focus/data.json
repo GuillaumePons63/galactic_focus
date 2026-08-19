@@ -1,0 +1,54 @@
+﻿{
+  "ships": [
+    {
+      "id": "flagship_main",
+      "name": "Vaisseau Amiral",
+      "color": "#00F0FF",
+      "icon": "🪐",
+      "created_at": "2026-08-19T12:00:00.000000",
+      "total_seconds": 0,
+      "sessions_count": 0,
+      "is_flagship": true,
+      "is_retired": false,
+      "retired_at": null
+    },
+    {
+      "id": "ship_interceptor",
+      "name": "Intercepteur Stellaire",
+      "color": "#38BDF8",
+      "icon": "🚀",
+      "created_at": "2026-08-19T12:00:00.000000",
+      "total_seconds": 0,
+      "sessions_count": 0,
+      "is_flagship": false,
+      "is_retired": false,
+      "retired_at": null
+    },
+    {
+      "id": "ship_cruiser",
+      "name": "Croiseur Lourd",
+      "color": "#9D4EDD",
+      "icon": "🛸",
+      "created_at": "2026-08-19T12:00:00.000000",
+      "total_seconds": 0,
+      "sessions_count": 0,
+      "is_flagship": false,
+      "is_retired": false,
+      "retired_at": null
+    },
+    {
+      "id": "ship_falcon",
+      "name": "Faucon Stellaire",
+      "color": "#00E676",
+      "icon": "⚡",
+      "created_at": "2026-08-19T12:00:00.000000",
+      "total_seconds": 0,
+      "sessions_count": 0,
+      "is_flagship": false,
+      "is_retired": false,
+      "retired_at": null
+    }
+  ],
+  "missions": [],
+  "sessions": []
+}
