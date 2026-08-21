@@ -82,8 +82,8 @@ def main(page: ft.Page):
         cockpit_view.reload_fleet()
         _update_sidebar_badges()
 
-    def on_launch_ship_from_board(ship: Ship):
-        cockpit_view.load_ship(ship)
+    def on_launch_ship_from_board(ship: Ship, mission: Optional[Mission] = None):
+        cockpit_view.load_mission(ship, mission)
         switch_tab("cockpit")
 
     cockpit_view = CockpitView(page, storage, on_data_changed=on_data_changed)

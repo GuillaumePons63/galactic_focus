@@ -235,7 +235,7 @@ class StorageManager:
         """Returns the first active global mission."""
         missions = self.get_missions(filter_status="in_progress")
         for m in missions:
-            if m.is_global or m.ship_id == "":
+            if m.is_global or m.ship_id == "" or m.ship_name == "Mission Globale":
                 return m
         return None
 
@@ -336,7 +336,8 @@ class StorageManager:
     def add_session(self, session: FocusSession) -> Dict[str, any]:
         """
         Saves a session and automatically updates ship flight hours,
-        advances the ship's active mission, AND advances active global missions.
+        advances targeted and active specific missions,
+        AND systematically advances all active global fleet-wide missions.
         """
         raw = self._load_raw()
         raw.setdefault("sessions", []).append(session.to_dict())
@@ -345,7 +346,7 @@ class StorageManager:
         completed_missions = []
 
         if session.completed:
-            # 1. Update chosen ship flight stats
+            # 1. Update chosen ship flight stats (type / category of work)
             s_id = session.ship_id or session.project_id
             if s_id:
                 for s in raw.get("ships", []):
@@ -354,32 +355,54 @@ class StorageManager:
                         s["sessions_count"] = s.get("sessions_count", 0) + 1
                         break
 
-            # 2. Automatically advance the Ship's active mission (if specific ship)
-            if s_id:
+            targeted_mission_id = session.mission_id or ""
+            handled_mission_ids = set()
+
+            # 2. If a specific mission was explicitly targeted (e.g. launched from mission card or selected in cockpit)
+            if targeted_mission_id:
+                for m in raw.get("missions", []):
+                    if m.get("id") == targeted_mission_id:
+                        m_obj = Mission.from_dict(m)
+                        if not m_obj.is_completed:
+                            m["progress_seconds"] = m.get("progress_seconds", 0) + session.actual_seconds
+                            advanced_missions.append(m.get("title", ""))
+                            if m["progress_seconds"] >= m.get("target_seconds", 1200):
+                                m["status"] = "completed"
+                                m["completed_at"] = datetime.now().isoformat()
+                                completed_missions.append(m.get("title", ""))
+                        handled_mission_ids.add(m.get("id"))
+                        break
+
+            # 3. If NO explicit mission was targeted, advance the first active specific mission of this ship (if any)
+            elif s_id:
                 for m in raw.get("missions", []):
                     m_obj = Mission.from_dict(m)
                     if not m_obj.is_completed and not m_obj.is_global and m_obj.ship_id == s_id:
                         m["progress_seconds"] = m.get("progress_seconds", 0) + session.actual_seconds
-                        advanced_missions.append(m["title"])
+                        advanced_missions.append(m.get("title", ""))
                         if m["progress_seconds"] >= m.get("target_seconds", 1200):
                             m["status"] = "completed"
                             m["completed_at"] = datetime.now().isoformat()
-                            completed_missions.append(m["title"])
-                        # Advance the first active mission of this ship
+                            completed_missions.append(m.get("title", ""))
+                        handled_mission_ids.add(m.get("id"))
                         break
 
-            # 3. Automatically advance ALL active Global Missions (regardless of ship flown)
+            # 4. ALWAYS advance ALL active Global Missions (fleet-wide total working time), unless already handled
             for m in raw.get("missions", []):
                 m_obj = Mission.from_dict(m)
-                if not m_obj.is_completed and (m_obj.is_global or m_obj.ship_id == ""):
-                    m["progress_seconds"] = m.get("progress_seconds", 0) + session.actual_seconds
-                    if m["title"] not in advanced_missions:
-                        advanced_missions.append(m["title"])
-                    if m["progress_seconds"] >= m.get("target_seconds", 1200):
-                        m["status"] = "completed"
-                        m["completed_at"] = datetime.now().isoformat()
-                        if m["title"] not in completed_missions:
-                            completed_missions.append(m["title"])
+                is_global_mission = m_obj.is_global or m.get("ship_id") == "" or m.get("ship_name") == "Mission Globale"
+                if is_global_mission and not m_obj.is_completed:
+                    if m.get("id") not in handled_mission_ids:
+                        m["progress_seconds"] = m.get("progress_seconds", 0) + session.actual_seconds
+                        m_title = m.get("title", "")
+                        if m_title and m_title not in advanced_missions:
+                            advanced_missions.append(m_title)
+                        if m["progress_seconds"] >= m.get("target_seconds", 1200):
+                            m["status"] = "completed"
+                            m["completed_at"] = datetime.now().isoformat()
+                            if m_title and m_title not in completed_missions:
+                                completed_missions.append(m_title)
+                        handled_mission_ids.add(m.get("id"))
 
         self._save_raw(raw)
         return {

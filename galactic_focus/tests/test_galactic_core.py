@@ -244,6 +244,40 @@ class TestStorageManager(unittest.TestCase):
         self.assertTrue(m_glob_db2.is_completed)
         self.assertEqual(m_glob_db2.progress_seconds, 2400)
 
+    def test_targeted_mission_advances_both_specific_and_global_missions(self):
+        """When a flight targets a specific mission, both the specific and global missions progress."""
+        ship_peda = self.storage.add_ship("Prépa Péda", "#00F0FF", "🛸")
+        m_global = self.storage.add_mission("Minimum Travail 4h", target_seconds=14400, is_global=True)
+        m_course = self.storage.add_mission("Créer Module 1", target_seconds=3600, is_global=False, ship_id=ship_peda.id, ship_name=ship_peda.name)
+
+        # Pilot ship_peda for 2700s targeting m_course
+        session = FocusSession(
+            ship_id=ship_peda.id,
+            ship_name=ship_peda.name,
+            ship_icon=ship_peda.icon,
+            mission_id=m_course.id,
+            mission_title=m_course.title,
+            target_seconds=1200,
+            actual_seconds=2700,
+            overtime_seconds=1500,
+            completed=True,
+        )
+        res = self.storage.add_session(session)
+
+        # Verify resolution
+        self.assertIn("Créer Module 1", res["advanced_missions"])
+        self.assertIn("Minimum Travail 4h", res["advanced_missions"])
+
+        # Check DB states
+        m_course_db = self.storage.get_mission_by_id(m_course.id)
+        m_global_db = self.storage.get_mission_by_id(m_global.id)
+        ship_db = self.storage.get_ship_by_id(ship_peda.id)
+
+        self.assertEqual(m_course_db.progress_seconds, 2700)
+        self.assertEqual(m_global_db.progress_seconds, 2700)
+        self.assertEqual(ship_db.total_seconds, 2700)
+        self.assertEqual(ship_db.sessions_count, 1)
+
     def test_maintenance_log_csv_export(self):
         ship = self.storage.add_ship("Croiseur Gamma", "#FF9E00", "🛸")
         session = FocusSession(
@@ -357,7 +391,7 @@ class TestUIViewsWorkflow(unittest.TestCase):
 
     def test_views_initialization_and_sync(self):
         cockpit = CockpitView(self.page, self.storage)
-        missions = MissionsView(self.page, self.storage, on_launch_ship=lambda s: cockpit.load_ship(s))
+        missions = MissionsView(self.page, self.storage, on_launch_ship=lambda s, m=None: cockpit.load_mission(s, m))
         hangar = HangarView(self.page, self.storage)
 
         # 1. Check Cockpit controls
@@ -372,10 +406,13 @@ class TestUIViewsWorkflow(unittest.TestCase):
 
         self.assertIn(new_ship.id, [opt.key for opt in cockpit.ship_dropdown.options])
 
-        # 3. Launch mission from MissionsView loads ship in Cockpit
-        m = self.storage.add_mission("Mission Infiltration", target_seconds=1200, is_global=False, ship_id=new_ship.id, ship_name=new_ship.name)
+        # 3. Launch mission from MissionsView loads ship and targeted mission in Cockpit
+        m = self.storage.add_mission("Mission Infiltration", target_seconds=1800, is_global=False, ship_id=new_ship.id, ship_name=new_ship.name)
         missions._launch_mission_flight(m)
         self.assertEqual(cockpit.selected_ship.id, new_ship.id)
+        self.assertIsNotNone(cockpit.targeted_mission)
+        self.assertEqual(cockpit.targeted_mission.id, m.id)
+        self.assertEqual(cockpit.selected_duration_sec, 1800)
 
 
 if __name__ == "__main__":

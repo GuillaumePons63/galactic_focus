@@ -123,7 +123,11 @@ class Mission:
     @classmethod
     def from_dict(cls, data: dict) -> "Mission":
         s_id = data.get("ship_id") or data.get("project_id", "")
-        is_glob = data.get("is_global", s_id == "")
+        raw_is_global = data.get("is_global")
+        if raw_is_global is not None:
+            is_glob = bool(raw_is_global)
+        else:
+            is_glob = (s_id == "" or data.get("ship_name") == "Mission Globale")
         s_name = data.get("ship_name") or data.get("project_name", "Mission Globale" if is_glob else "Vaisseau")
         s_icon = data.get("ship_icon") or data.get("project_icon", "🌌" if is_glob else "🚀")
         s_color = data.get("ship_color") or data.get("project_color", "#00F0FF")

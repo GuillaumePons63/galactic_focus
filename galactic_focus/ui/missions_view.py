@@ -639,17 +639,18 @@ class MissionsView:
         )
 
     def _launch_mission_flight(self, mission: Mission):
-        """Launches flight in Cockpit for this mission (invokes on_launch_ship callback)."""
+        """Launches flight in Cockpit for this mission (invokes on_launch_ship callback with ship and mission)."""
         if mission.is_global or not mission.ship_id:
-            flagship = self.storage.get_flagship()
-            if self.on_launch_ship:
-                self.on_launch_ship(flagship)
+            ship_to_launch = self.storage.get_flagship()
         else:
             ship = self.storage.get_ship_by_id(mission.ship_id)
-            if not ship:
-                ship = self.storage.get_flagship()
-            if ship and self.on_launch_ship:
-                self.on_launch_ship(ship)
+            ship_to_launch = ship or self.storage.get_flagship()
+
+        if self.on_launch_ship and ship_to_launch:
+            try:
+                self.on_launch_ship(ship_to_launch, mission)
+            except TypeError:
+                self.on_launch_ship(ship_to_launch)
 
     def _toggle_mission(self, mission_or_id: Union[Mission, str]):
         if isinstance(mission_or_id, str):

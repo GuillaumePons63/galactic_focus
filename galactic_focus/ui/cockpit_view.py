@@ -47,6 +47,7 @@ class CockpitView:
         self.timer_engine = TimerEngine(default_target_seconds=1200, ignition_duration_seconds=10)
         self.selected_duration_sec: int = 1200
         self.selected_ship: Optional[Ship] = None
+        self.targeted_mission: Optional[Mission] = None
         self._stop_ticker: bool = False
         self._pulse_tick: int = 0
 
@@ -398,39 +399,78 @@ class CockpitView:
         return "🪐 Vaisseau Amiral"
 
     def _get_auto_mission_label(self) -> str:
+        active_global = self.storage.get_active_global_mission()
+
+        if self.targeted_mission:
+            fresh_m = self.storage.get_mission_by_id(self.targeted_mission.id)
+            if fresh_m and not fresh_m.is_completed:
+                self.targeted_mission = fresh_m
+                if fresh_m.is_global or fresh_m.ship_id == "":
+                    return f"🎯 Mission Globale Ciblée : {fresh_m.title}"
+                else:
+                    glob_tag = f" (+ Globale {active_global.title[:12]})" if active_global else ""
+                    return f"🎯 Mission Ciblée : {fresh_m.title}{glob_tag}"
+            else:
+                self.targeted_mission = None
+
         if not self.selected_ship:
             return "Propulsion Libre"
 
-        active_global = self.storage.get_active_global_mission()
-
         if self.selected_ship.is_flagship:
             if active_global:
-                return f"🌌 Avance : {active_global.title[:20]}..."
+                return f"🌌 Décompte sur Mission Globale : {active_global.title}"
             return "🌌 Décompte sur les missions globales"
 
         ship_mission = self.storage.get_active_mission_for_ship(self.selected_ship.id)
         if ship_mission and active_global:
-            return f"🎯 {ship_mission.title[:14]}... (+ {active_global.title[:10]}...)"
+            return f"🎯 {ship_mission.title} (+ Globale {active_global.title[:12]})"
         elif ship_mission:
-            return f"🎯 Avance : {ship_mission.title[:22]}..."
+            return f"🎯 {ship_mission.title}"
         elif active_global:
-            return f"🌌 Avance la mission globale : {active_global.title[:18]}..."
-        return "Vol Spécifique"
+            return f"🌌 Avance mission globale : {active_global.title}"
+        return "Propulsion Libre (Travail sans mission)"
 
     def _on_ship_selected(self, e):
         ship_id = self.ship_dropdown.value
         self.selected_ship = self.storage.get_ship_by_id(ship_id)
+        if self.targeted_mission and not self.targeted_mission.is_global and self.targeted_mission.ship_id != ship_id:
+            self.targeted_mission = None
         self.ship_pill_text.value = self._get_ship_label()
         self.mission_auto_pill_text.value = self._get_auto_mission_label()
         self.page.update()
 
-    def load_ship(self, ship: Ship):
+    def load_mission(self, ship: Ship, mission: Optional[Mission] = None):
+        """Loads a ship (category of work) and sets an optional targeted mission."""
         self.selected_ship = ship
+        self.targeted_mission = mission
         self.ship_dropdown.value = ship.id
+
+        if mission and not self.timer_engine.is_running:
+            rem_sec = max(60, mission.target_seconds - mission.progress_seconds)
+            if rem_sec >= 3600:
+                self._set_target_duration(3600)
+            elif rem_sec >= 2700:
+                self._set_target_duration(2700)
+            elif rem_sec >= 1800:
+                self._set_target_duration(1800)
+            elif rem_sec >= 1500:
+                self._set_target_duration(1500)
+            elif rem_sec >= 1200:
+                self._set_target_duration(1200)
+            elif rem_sec >= 900:
+                self._set_target_duration(900)
+
         self.ship_pill_text.value = self._get_ship_label()
         self.mission_auto_pill_text.value = self._get_auto_mission_label()
-        self._show_notification(f"Vaisseau '{ship.name}' configuré sur le pont de commande !")
+
+        if mission:
+            self._show_notification(f"🎯 Mission '{mission.title}' configurée sur le pont de commande !")
+        else:
+            self._show_notification(f"Vaisseau '{ship.name}' configuré sur le pont de commande !")
         self.page.update()
+
+    def load_ship(self, ship: Ship):
+        self.load_mission(ship, None)
 
     def _refresh_daily_fleet_view(self):
         daily = self.storage.get_daily_summary()
@@ -516,9 +556,13 @@ class CockpitView:
             ship_name = ship.name
             ship_icon = ship.icon
 
-            ship_mission = self.storage.get_active_mission_for_ship(ship_id)
-            m_id = ship_mission.id if ship_mission else ""
-            m_title = ship_mission.title if ship_mission else ("Travail Global" if ship.is_flagship else "")
+            if self.targeted_mission and not self.targeted_mission.is_completed:
+                m_id = self.targeted_mission.id
+                m_title = self.targeted_mission.title
+            else:
+                ship_mission = self.storage.get_active_mission_for_ship(ship_id)
+                m_id = ship_mission.id if ship_mission else ""
+                m_title = ship_mission.title if ship_mission else ("Travail Global" if ship.is_flagship else "")
 
             self.timer_engine.start(
                 ship_id=ship_id,
